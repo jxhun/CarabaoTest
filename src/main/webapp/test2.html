@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <title>周边（圆形区域）检索</title>
+    <style type="text/css">
+        * {
+            margin: 0px;
+            padding: 0px;
+        }
+
+        body, button, input, select, textarea {
+            font: 12px/16px Verdana, Helvetica, Arial, sans-serif;
+        }
+
+        p {
+            width: 603px;
+            padding-top: 3px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        #container {
+            min-width: 603px;
+            min-height: 767px;
+        }
+    </style>
+    <script charset="utf-8" src="https://map.qq.com/api/js?v=2.exp&key=L2LBZ-OPH6X-E244O-7EBDV-W7L5E-WDBO6"></script>
+    <script src="js/jquery-3.3.1.min.js"></script>
+    <script>
+        var geocoder1,map1,marker = null;
+        var geocoder2,map2,marker = null;
+
+        var searchService, map, markers = [];
+
+        var init = function () {
+            var center = new qq.maps.LatLng(23.08331, 113.3172);
+            map = new qq.maps.Map(document.getElementById('container'), {
+                center: center,
+                zoom: 13
+            });
+
+            //调用地址解析类
+            geocoder1 = new qq.maps.Geocoder({
+                complete: function (result) {
+                    map.setCenter(result.detail.location);
+                    var marker = new qq.maps.Marker({
+                        map: map1,
+                        position: result.detail.location
+                    });
+                }
+            });
+
+            var lat;
+            var lng;
+            //通过getLocation();方法获取位置信息值
+            geocoder1.getLocation("广州白云江南市场");
+            //设置服务请求成功的回调函数
+            geocoder1.setComplete(function (result) {
+                // console.log(result);
+                lat = result.detail.location.lat;
+                lng = result.detail.location.lng;
+                //设置圆形
+                new qq.maps.Circle({
+                    center: new qq.maps.LatLng(lat, lng),
+                    radius: 600,
+                    map: map
+                });
+
+            });
+
+
+            //再次调用地址解析类从新解析，不然两个地址无法全部解析
+            geocoder2 = new qq.maps.Geocoder({
+                complete: function (result) {
+                    map.setCenter(result.detail.location);
+                    var marker = new qq.maps.Marker({
+                        map: map2,
+                        position: result.detail.location
+                    });
+                }
+            });
+
+            //通过getLocation();方法获取位置信息值
+            geocoder2.getLocation("广州番禺清河市场");
+            //设置服务请求成功的回调函数
+            geocoder2.setComplete(function (result) {
+                // console.log(result);
+                lat = result.detail.location.lat;
+                lng = result.detail.location.lng;
+                new qq.maps.Circle({
+                    center: new qq.maps.LatLng(lat, lng),
+                    radius: 600,
+                    map: map
+                });
+
+            });
+
+            var latlngBounds = new qq.maps.LatLngBounds();
+            //调用Poi检索类
+            searchService = new qq.maps.SearchService({
+                complete: function (results) {
+                    var pois = results.detail.pois;
+                    for (var i = 0, l = pois.length; i < l; i++) {
+                        var poi = pois[i];
+                        latlngBounds.extend(poi.latLng);
+                        var marker = new qq.maps.Marker({
+                            map: map,
+                            position: poi.latLng
+                        });
+
+                        marker.setTitle(i + 1);
+
+                        markers.push(marker);
+                    }
+                    map.fitBounds(latlngBounds);
+                }
+            });
+
+            $.ajax({
+                url: "/excle",   // 请求路径
+                type: "GET",            // 请求的方式，不区分大小写
+                cache: false,            // 关闭缓存，目的是为了避免部分浏览器缓存加载出错(IE)
+                datatype: "json",        // 返回类型，text文本、html页面、json数据
+                // contentType: "application/json; charset=utf-8",
+                data:{},
+                success: function (response) {
+                    var jsonArr = response.data;
+                    var infoWin = new qq.maps.InfoWindow({
+                        map: map
+                    });
+                    var latlngs = new Array();
+                    for(var i = 0;i < jsonArr.length; i++){
+                        var X = jsonArr[i].coordinate.substring(2,11);
+                        var Y = jsonArr[i].coordinate.substring(14,24);
+                        console.log(X + "," + Y)
+                        latlngs.push(new qq.maps.LatLng(X,Y))
+                    }
+
+                    for(var i = 0;i < latlngs.length; i++) {
+                        (function(n){
+                            console.log(jsonArr[n].nameOfStore)
+                            var marker = new qq.maps.Marker({
+                                position: latlngs[n],
+                                map: map
+                            });
+                            qq.maps.event.addListener(marker, 'click', function() {
+                                infoWin.open();
+                                infoWin.setContent('<div style="text-align:center;white-space:'+
+                                    'nowrap;margin:10px;">' +
+                                    jsonArr[n].nameOfStore + '</div>');
+                                infoWin.setPosition(latlngs[n]);
+                            });
+                        })(i);
+                    }
+                },
+                error: function (response) {
+                    alert("出错" + response);
+                }
+            });
+
+        }
+    </script>
+</head>
+<body onload="init()">
+<div id="container"></div>
+<p>输入关键词，点击search查寻，查寻范围这一个圆形区域。</p>
+</body>
+</html>
